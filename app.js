@@ -3,7 +3,6 @@ let usersDB = JSON.parse(localStorage.getItem('gym_rpg_users')) || {};
 let currentUser = localStorage.getItem('gym_rpg_current_user') || null;
 let isRegisterMode = false;
 
-// Catálogo Real de Itens da Loja com Descrições de Contexto RPG Gym
 const SHOP_ITEMS = [
     { id: 'elmo_barbaro', name: 'Capuz do Titã de Ferro', type: 'helmet', cost: 40, description: 'Proteção pesada para aguentar as séries mais brutais até a falha.', stats: { attack: 2, defense: 12, magic: 0, intelligence: 0, mobility: -1, tenacity: 15 }, image: 'assets/items/elmo.png' },
     { id: 'colar_foco', name: 'Amuleto de Foco Pré-Treino', type: 'necklace', cost: 60, description: 'Sua mente canaliza energia ancestral pura logo na primeira repetição.', stats: { attack: 5, defense: 0, magic: 20, intelligence: 15, mobility: 5, tenacity: 0 }, image: 'assets/items/colar.png' },
@@ -15,7 +14,7 @@ const SHOP_ITEMS = [
     { id: 'botas_rapidas', name: 'Sapatilha do Boxeador Sombra', type: 'boots', cost: 50, description: 'Leveza incomparável. Seus pés se movem antes mesmo do oponente piscar.', stats: { attack: 5, defense: 8, magic: 0, intelligence: 0, mobility: 30, tenacity: 5 }, image: 'assets/items/botas.png' }
 ];
 
-// ====== SISTEMA DE FEEDBACK VISUAL DE CONFIRMAÇÃO (TOASTS) ======
+// ====== FEEDBACK VISUAL (TOASTS) ======
 function showNotification(message, type = 'success') {
     const container = document.getElementById('toast-container');
     if (!container) return;
@@ -33,20 +32,14 @@ function showNotification(message, type = 'success') {
     toast.innerHTML = `<div class="flex-1">${message}</div>`;
 
     container.appendChild(toast);
-
-    // Fade-in
-    setTimeout(() => {
-        toast.classList.remove('translate-y-2', 'opacity-0');
-    }, 20);
-
-    // Fade-out e destruição automática
+    setTimeout(() => toast.classList.remove('translate-y-2', 'opacity-0'), 20);
     setTimeout(() => {
         toast.classList.add('translate-y-[-10px]', 'opacity-0');
         setTimeout(() => toast.remove(), 300);
     }, 3500);
 }
 
-// ====== MOTOR DE TOOLTIPS DINÂMICOS ======
+// ====== MOTOR DE TOOLTIPS ======
 function showTooltip(e, itemId) {
     const item = SHOP_ITEMS.find(i => i.id === itemId);
     if (!item) return;
@@ -82,8 +75,6 @@ function showTooltip(e, itemId) {
 function moveTooltip(e) {
     const tooltip = document.getElementById('rpg-tooltip');
     if (!tooltip) return;
-    
-    // Deslocamento para o box não ficar sob o cursor do mouse
     tooltip.style.left = (e.clientX + 16) + 'px';
     tooltip.style.top = (e.clientY + 16) + 'px';
 }
@@ -93,7 +84,7 @@ function hideTooltip() {
     if (tooltip) tooltip.classList.add('hidden');
 }
 
-// ====== NAVEGAÇÃO SEGURA VANIILA ======
+// ====== NAVEGAÇÃO FLUIDA ======
 function switchTab(tabId, element) {
     document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
     const targetTab = document.getElementById(`tab-${tabId}`);
@@ -120,7 +111,65 @@ function switchTab(tabId, element) {
     }
 }
 
-// ====== SISTEMA DE AUTENTICAÇÃO ======
+// ====== GERENCIAMENTO DE PROFILE & CONTA (ABAS DE SETTINGS) ======
+function updateProfile() {
+    const player = usersDB[currentUser];
+    if (!player) return;
+
+    const newName = document.getElementById('settings-username').value.trim();
+    const newWeight = parseInt(document.getElementById('settings-weight').value);
+    const newHeight = parseInt(document.getElementById('settings-height').value);
+
+    if (!newName) return alert('Sua alcunha de herói não pode ficar em branco.');
+    if (isNaN(newWeight) || newWeight <= 0 || isNaN(newHeight) || newHeight <= 0) {
+        return alert('Valores de peso e altura precisam ser válidos.');
+    }
+
+    // Se mudou o nome, atualiza as chaves do objeto no banco simulado
+    if (newName.toLowerCase() !== currentUser) {
+        const lowerNew = newName.toLowerCase();
+        if (usersDB[lowerNew]) return alert('Esse nome de herói já está sendo utilizado por outra estirpe.');
+        
+        player.profile.username = lowerNew;
+        usersDB[lowerNew] = player;
+        delete usersDB[currentUser];
+        currentUser = lowerNew;
+        localStorage.setItem('gym_rpg_current_user', currentUser);
+    }
+
+    player.profile.weight = newWeight;
+    player.profile.height = newHeight;
+
+    saveDB();
+    updateUI();
+    showNotification('📜 Seus registros biográficos foram alterados com sucesso!', 'success');
+}
+
+function resetAccount() {
+    if (!confirm('⚠️ Tem certeza que deseja redefinir todas as suas conquistas, esvaziar a bolsa e voltar ao Nível 1? Essa ação é permanente.')) return;
+    
+    const player = usersDB[currentUser];
+    player.level = 1;
+    player.xp = 0;
+    player.coins = 0;
+    player.inventory = [];
+    player.equipped = { helmet: null, necklace: null, shield: null, weapon: null, gloves: null, ring: null, armor: null, boots: null };
+    player.logs = [];
+
+    saveDB();
+    updateUI();
+    showNotification('🔥 Sua alma foi purificada. Progresso zerado!', 'level_up');
+}
+
+function deleteAccount() {
+    if (!confirm('🚨 ATENÇÃO CRÍTICA: Deseja banir permanentemente seu personagem deste reino? Isso apagará totalmente sua conta do banco de dados.')) return;
+    
+    delete usersDB[currentUser];
+    saveDB();
+    logout();
+}
+
+// ====== AUTENTICAÇÃO ======
 function toggleAuthMode() {
     isRegisterMode = !isRegisterMode;
     document.getElementById('register-fields').classList.toggle('hidden', !isRegisterMode);
@@ -136,16 +185,8 @@ function handlePrimaryAuth() {
         if (usersDB[username]) return alert('Esse herói já caminha por essas terras.');
         
         usersDB[username] = {
-            profile: {
-                username: username,
-                weight: document.getElementById('reg-weight').value || 80,
-                height: document.getElementById('reg-height').value || 175,
-                gender: document.getElementById('reg-gender').value || 'M'
-            },
-            level: 1,
-            xp: 0,
-            coins: 0, // Moedas cravaram em zero para novas contas conforme solicitado
-            inventory: [],
+            profile: { username: username, weight: document.getElementById('reg-weight').value || 80, height: document.getElementById('reg-height').value || 175, gender: document.getElementById('reg-gender').value || 'M' },
+            level: 1, xp: 0, coins: 0, inventory: [],
             equipped: { helmet: null, necklace: null, shield: null, weapon: null, gloves: null, ring: null, armor: null, boots: null },
             logs: []
         };
@@ -175,7 +216,7 @@ function getXpNeeded(level) {
     return Math.round(100 * Math.pow(level, 1.6));
 }
 
-// ====== CÁLCULO DE ATRIBUTOS BRUTOS ======
+// ====== ATRIBUTOS ENGINE ======
 function calculateStats(player) {
     const baseStat = Math.round(player.level * 2.5); 
     let totals = { attack: baseStat, defense: baseStat, magic: baseStat, intelligence: baseStat, mobility: baseStat, tenacity: baseStat };
@@ -200,7 +241,7 @@ function calculateStats(player) {
     document.getElementById('stat-tenacity').innerText = totals.tenacity;
 }
 
-// ====== WORKOUT FARM LOGIC ======
+// ====== REGISTRO DE ESFORÇO ======
 function submitWorkout() {
     const player = usersDB[currentUser];
     const activity = document.getElementById('farm-activity').value;
@@ -239,20 +280,19 @@ function submitWorkout() {
     updateUI();
 }
 
-// ====== INVENTÁRIO E COMPRAS ======
+// ====== COMPRAS E MODIFICAÇÃO DE ITEMS ======
 function buyItem(itemId) {
     const player = usersDB[currentUser];
     const item = SHOP_ITEMS.find(i => i.id === itemId);
 
-    if (!item) return alert('Item místico indisponível nesta era.');
-    if (player.inventory.length >= 24) return alert('Bolsa cheia! Desequipe algo.');
-    if (player.coins < item.cost) return alert('O mercador exige mais moedas de ouro. Complete missões de treino!');
+    if (!item) return alert('Item indisponível.');
+    if (player.inventory.length >= 24) return alert('Mochila cheia.');
+    if (player.coins < item.cost) return alert('Moedas insuficientes.');
 
     player.coins -= item.cost;
     player.inventory.push(item.id);
     
-    showNotification(`🛒 Você adquiriu [${item.name}] com sucesso!`, 'success');
-    
+    showNotification(`🛒 Você adquiriu [${item.name}]!`, 'success');
     saveDB();
     updateUI();
 }
@@ -271,8 +311,7 @@ function equipItem(itemId) {
     const idx = player.inventory.indexOf(itemId);
     if (idx > -1) player.inventory.splice(idx, 1);
 
-    showNotification(`🛡️ Você equipou [${item.name}]. Seus atributos subiram!`, 'equip');
-
+    showNotification(`🛡️ Equipou [${item.name}]. Seus atributos aumentaram!`, 'equip');
     saveDB();
     updateUI();
 }
@@ -288,23 +327,24 @@ function unequipItem(slot) {
     player.equipped[slot] = null;
     player.inventory.push(itemId);
 
-    if (item) {
-        showNotification(`📦 Desequipou [${item.name}]. Item devolvido à bolsa.`, 'equip');
-    }
-
+    if (item) showNotification(`📦 Guardou [${item.name}] de volta na mochila.`, 'equip');
     saveDB();
     updateUI();
 }
 
-// ====== RENDER ENGINE ======
+// ====== RE-RENDER ENGINE PRINCIPAL ======
 function updateUI() {
     const player = usersDB[currentUser];
     if (!player) return;
 
-    // Proteção crucial: Esconde o tooltip ao re-renderizar para evitar caixas fantasmas na tela
     hideTooltip();
 
-    // Dados básicos do HUD
+    // Sincroniza dados nos inputs das Configurações
+    document.getElementById('settings-username').value = player.profile.username;
+    document.getElementById('settings-weight').value = player.profile.weight;
+    document.getElementById('settings-height').value = player.profile.height;
+
+    // HUD Superior Atualizações
     document.getElementById('char-name').innerText = player.profile.username.toUpperCase();
     document.getElementById('char-level').innerText = player.level;
     document.getElementById('char-coins').innerText = `🪙 ${player.coins}`;
@@ -313,12 +353,12 @@ function updateUI() {
     document.getElementById('hud-avatar-frame').innerText = isMale ? '🧔' : '🛡️';
 
     document.getElementById('profile-meta-details').innerHTML = `
-        <p><strong>Biotipo:</strong> ${isMale ? 'Bárbaro' : 'Valquíria'}</p>
-        <p><strong>Massa Corporal:</strong> ${player.profile.weight} kg</p>
-        <p><strong>Envergadura:</strong> ${player.profile.height} cm</p>
+        <p>CLASSE: ${isMale ? 'Bárbaro' : 'Valquíria'}</p>
+        <p>MASSA: ${player.profile.weight} KG</p>
+        <p>ALTURA: ${player.profile.height} CM</p>
     `;
 
-    // Atualização da imagem central do Boneco
+    // Renderização do Retrato de Corpo Inteiro
     const dollCenter = document.getElementById('character-doll-center');
     const fallbackText = document.getElementById('avatar-fallback-visual');
     dollCenter.style.backgroundImage = `url('assets/${isMale ? 'male' : 'female'}.png')`;
@@ -327,7 +367,7 @@ function updateUI() {
     dollCenter.style.backgroundRepeat = 'no-repeat';
     fallbackText.innerText = '';
 
-    // Render dos Slots 3x3 com tratamento e injeção de listeners de Tooltip
+    // Renderização da Matriz de Equipamentos
     const coreSlots = ['helmet', 'necklace', 'shield', 'weapon', 'gloves', 'ring', 'armor', 'boots'];
     const slotNames = { helmet: '🪖 Cabeça', necklace: '📿 Colar', shield: '🛡️ Escudo', weapon: '⚔️ Arma', gloves: '🧤 Luvas', ring: '💍 Anel', armor: '🥋 Peito', boots: '🥾 Pés' };
 
@@ -335,33 +375,25 @@ function updateUI() {
         const itemId = player.equipped[slot];
         const el = document.getElementById(`slot-${slot}`);
         if (el) {
-            // Reset de Tooltips passados
-            el.removeAttribute('onmouseenter');
-            el.removeAttribute('onmousemove');
-            el.removeAttribute('onmouseleave');
+            el.removeAttribute('onmouseenter'); el.removeAttribute('onmousemove'); el.removeAttribute('onmouseleave');
 
             if (itemId) {
                 const item = SHOP_ITEMS.find(i => i.id === itemId);
                 if (item) {
                     el.innerHTML = `<img src="${item.image}" alt="${item.name}" class="w-full h-full object-contain p-1" onerror="this.style.display='none'; this.parentElement.innerHTML='✨';">`;
                     el.className = "w-full aspect-square bg-slate-900 border-2 border-amber-500 rounded flex items-center justify-center cursor-pointer shadow-inner";
-                    
-                    // Vincula os gatilhos do Tooltip no item equipado
                     el.setAttribute('onmouseenter', `showTooltip(event, '${itemId}')`);
                     el.setAttribute('onmousemove', `moveTooltip(event)`);
                     el.setAttribute('onmouseleave', `hideTooltip()`);
-                } else {
-                    el.innerHTML = slotNames[slot];
-                    el.className = "w-full aspect-square bg-slate-900/60 border border-slate-800 rounded flex flex-col items-center justify-center text-[10px] text-slate-500 cursor-default text-center select-none";
                 }
             } else {
                 el.innerHTML = slotNames[slot];
-                el.className = "w-full aspect-square bg-slate-900/60 border border-slate-800 rounded flex flex-col items-center justify-center text-[10px] text-slate-500 cursor-default text-center select-none";
+                el.className = "w-full aspect-square bg-slate-900/60 border border-slate-800 rounded flex flex-col items-center justify-center text-[9px] text-slate-500 cursor-default text-center font-bold select-none";
             }
         }
     });
 
-    // Render da Mochila de 24 Slots com Listeners de Tooltip
+    // Renderização dos Compartimentos da Mochila
     const invGrid = document.getElementById('inventory-grid');
     if (invGrid) {
         invGrid.innerHTML = '';
@@ -377,14 +409,9 @@ function updateUI() {
                     slotBox.className = "w-full aspect-square bg-slate-900 border border-slate-700 hover:border-amber-400 rounded flex items-center justify-center p-1 cursor-pointer transition shadow-inner";
                     slotBox.innerHTML = `<img src="${item.image}" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='📦';">`;
                     slotBox.onclick = () => equipItem(itemId);
-
-                    // Vincula os gatilhos do Tooltip na Mochila
                     slotBox.setAttribute('onmouseenter', `showTooltip(event, '${itemId}')`);
                     slotBox.setAttribute('onmousemove', `moveTooltip(event)`);
                     slotBox.setAttribute('onmouseleave', `hideTooltip()`);
-                } else {
-                    slotBox.className = "w-full aspect-square bg-slate-900 border border-red-900 rounded flex items-center justify-center cursor-pointer";
-                    slotBox.innerHTML = '📦';
                 }
             } else {
                 slotBox.className = "w-full aspect-square bg-slate-950 border border-slate-900/40 rounded shadow-inner";
@@ -393,7 +420,7 @@ function updateUI() {
         }
     }
 
-    // Render da Loja de Itens com Listeners de Tooltip atrelados ao Card
+    // Renderização dos Itens da Loja
     const shopGrid = document.getElementById('shop-grid');
     if (shopGrid) {
         shopGrid.innerHTML = '';
@@ -414,17 +441,14 @@ function updateUI() {
                     🪙 ${item.cost}
                 </button>
             `;
-            
-            // Vincula os gatilhos do Tooltip no card inteiro do Mercado
             card.setAttribute('onmouseenter', `showTooltip(event, '${item.id}')`);
             card.setAttribute('onmousemove', `moveTooltip(event)`);
             card.setAttribute('onmouseleave', `hideTooltip()`);
-
             shopGrid.appendChild(card);
         });
     }
 
-    // Render das Crônicas / Histórico
+    // Renderização das Histórias / Logs
     const logsContainer = document.getElementById('logs-container');
     if (logsContainer) {
         logsContainer.innerHTML = '';
@@ -445,7 +469,7 @@ function updateUI() {
         });
     }
 
-    // Atualização da Régua de XP
+    // Atualização das Barras de XP do HUD
     const xpTarget = getXpNeeded(player.level);
     document.getElementById('xp-bar').style.width = `${(player.xp / xpTarget) * 100}%`;
     document.getElementById('xp-current').innerText = `${player.xp} XP`;
@@ -464,5 +488,4 @@ function loadGame() {
     }
 }
 
-// Inicializa a aplicação
 loadGame();
