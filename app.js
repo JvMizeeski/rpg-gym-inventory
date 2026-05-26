@@ -111,7 +111,7 @@ function switchTab(tabId, element) {
     }
 }
 
-// ====== GERENCIAMENTO DE PROFILE & CONTA (ABAS DE SETTINGS) ======
+// ====== GERENCIAMENTO DE PROFILE & CONTA ======
 function updateProfile() {
     const player = usersDB[currentUser];
     if (!player) return;
@@ -125,7 +125,6 @@ function updateProfile() {
         return alert('Valores de peso e altura precisam ser válidos.');
     }
 
-    // Se mudou o nome, atualiza as chaves do objeto no banco simulado
     if (newName.toLowerCase() !== currentUser) {
         const lowerNew = newName.toLowerCase();
         if (usersDB[lowerNew]) return alert('Esse nome de herói já está sendo utilizado por outra estirpe.');
@@ -153,7 +152,7 @@ function resetAccount() {
     player.xp = 0;
     player.coins = 0;
     player.inventory = [];
-    player.equipped = { helmet: null, necklace: null, shield: null, weapon: null, gloves: null, ring: null, armor: null, boots: null };
+    player.equipped = { helmet: null, necklace: null, shield: null, weapon: null, gloves: null, ring: null, armor: null, boots: null },
     player.logs = [];
 
     saveDB();
@@ -280,7 +279,7 @@ function submitWorkout() {
     updateUI();
 }
 
-// ====== COMPRAS E MODIFICAÇÃO DE ITEMS ======
+// ====== COMPRAS E INVENTÁRIO ======
 function buyItem(itemId) {
     const player = usersDB[currentUser];
     const item = SHOP_ITEMS.find(i => i.id === itemId);
@@ -293,41 +292,6 @@ function buyItem(itemId) {
     player.inventory.push(item.id);
     
     showNotification(`🛒 Você adquiriu [${item.name}]!`, 'success');
-    saveDB();
-    updateUI();
-}
-
-function equipItem(itemId) {
-    const player = usersDB[currentUser];
-    const item = SHOP_ITEMS.find(i => i.id === itemId);
-    if (!item) return;
-    
-    if (player.equipped[item.type]) {
-        player.inventory.push(player.equipped[item.type]);
-    }
-    
-    player.equipped[item.type] = item.id;
-    
-    const idx = player.inventory.indexOf(itemId);
-    if (idx > -1) player.inventory.splice(idx, 1);
-
-    showNotification(`🛡️ Equipou [${item.name}]. Seus atributos aumentaram!`, 'equip');
-    saveDB();
-    updateUI();
-}
-
-function unequipItem(slot) {
-    const player = usersDB[currentUser];
-    const itemId = player.equipped[slot];
-    if (!itemId) return;
-
-    if (player.inventory.length >= 24) return alert('Mochila cheia para desequipar.');
-
-    const item = SHOP_ITEMS.find(i => i.id === itemId);
-    player.equipped[slot] = null;
-    player.inventory.push(itemId);
-
-    if (item) showNotification(`📦 Guardou [${item.name}] de volta na mochila.`, 'equip');
     saveDB();
     updateUI();
 }
@@ -352,22 +316,27 @@ function updateUI() {
     const isMale = player.profile.gender === 'M';
     document.getElementById('hud-avatar-frame').innerText = isMale ? '🧔' : '🛡️';
 
+    // RENDER REESCRITO: Alinhamento das informações inline e com marcadores limpos no cabeçalho
     document.getElementById('profile-meta-details').innerHTML = `
-        <p>CLASSE: ${isMale ? 'Bárbaro' : 'Valquíria'}</p>
-        <p>MASSA: ${player.profile.weight} KG</p>
-        <p>ALTURA: ${player.profile.height} CM</p>
+        <span class="text-amber-500 font-bold">${isMale ? 'Bárbaro' : 'Valquíria'}</span>
+        <span class="text-slate-700 px-0.5">•</span>
+        <span>${player.profile.weight} KG</span>
+        <span class="text-slate-700 px-0.5">•</span>
+        <span>${player.profile.height} CM</span>
     `;
 
-    // Renderização do Retrato de Corpo Inteiro
+    // Retrato de Corpo Inteiro
     const dollCenter = document.getElementById('character-doll-center');
+    if (dollCenter) {
+        dollCenter.style.backgroundImage = `url('assets/${isMale ? 'male' : 'female'}.png')`;
+        dollCenter.style.backgroundSize = 'contain';
+        dollCenter.style.backgroundPosition = 'center';
+        dollCenter.style.backgroundRepeat = 'no-repeat';
+    }
     const fallbackText = document.getElementById('avatar-fallback-visual');
-    dollCenter.style.backgroundImage = `url('assets/${isMale ? 'male' : 'female'}.png')`;
-    dollCenter.style.backgroundSize = 'contain';
-    dollCenter.style.backgroundPosition = 'center';
-    dollCenter.style.backgroundRepeat = 'no-repeat';
-    fallbackText.innerText = '';
+    if (fallbackText) fallbackText.innerText = '';
 
-    // Renderização da Matriz de Equipamentos
+    // Matriz de Equipamentos
     const coreSlots = ['helmet', 'necklace', 'shield', 'weapon', 'gloves', 'ring', 'armor', 'boots'];
     const slotNames = { helmet: '🪖 Cabeça', necklace: '📿 Colar', shield: '🛡️ Escudo', weapon: '⚔️ Arma', gloves: '🧤 Luvas', ring: '💍 Anel', armor: '🥋 Peito', boots: '🥾 Pés' };
 
@@ -388,12 +357,12 @@ function updateUI() {
                 }
             } else {
                 el.innerHTML = slotNames[slot];
-                el.className = "w-full aspect-square bg-slate-900/60 border border-slate-800 rounded flex flex-col items-center justify-center text-[9px] text-slate-500 cursor-default text-center font-bold select-none";
+                el.className = "w-full aspect-square bg-slate-900/60 border border-slate-800 rounded flex flex-col items-center justify-center text-[9px] text-slate-500 cursor-default text-center font-bold select-none p-1";
             }
         }
     });
 
-    // Renderização dos Compartimentos da Mochila
+    // Compartimentos da Mochila
     const invGrid = document.getElementById('inventory-grid');
     if (invGrid) {
         invGrid.innerHTML = '';
@@ -420,7 +389,7 @@ function updateUI() {
         }
     }
 
-    // Renderização dos Itens da Loja
+    // Vitrine da Loja
     const shopGrid = document.getElementById('shop-grid');
     if (shopGrid) {
         shopGrid.innerHTML = '';
@@ -448,7 +417,7 @@ function updateUI() {
         });
     }
 
-    // Renderização das Histórias / Logs
+    // Histórico / Logs
     const logsContainer = document.getElementById('logs-container');
     if (logsContainer) {
         logsContainer.innerHTML = '';
@@ -469,13 +438,47 @@ function updateUI() {
         });
     }
 
-    // Atualização das Barras de XP do HUD
+    // Barras de XP do HUD
     const xpTarget = getXpNeeded(player.level);
     document.getElementById('xp-bar').style.width = `${(player.xp / xpTarget) * 100}%`;
     document.getElementById('xp-current').innerText = `${player.xp} XP`;
     document.getElementById('xp-next').innerText = `${xpTarget} XP`;
 
     calculateStats(player);
+}
+
+function equipItem(itemId) {
+    const player = usersDB[currentUser];
+    const item = SHOP_ITEMS.find(i => i.id === itemId);
+    if (!item) return;
+    
+    if (player.equipped[item.type]) {
+        player.inventory.push(player.equipped[item.type]);
+    }
+    player.equipped[item.type] = item.id;
+    
+    const idx = player.inventory.indexOf(itemId);
+    if (idx > -1) player.inventory.splice(idx, 1);
+
+    showNotification(`🛡️ Equipou [${item.name}]. Seus atributos aumentaram!`, 'equip');
+    saveDB();
+    updateUI();
+}
+
+function unequipItem(slot) {
+    const player = usersDB[currentUser];
+    const itemId = player.equipped[slot];
+    if (!itemId) return;
+
+    if (player.inventory.length >= 24) return alert('Mochila cheia para desequipar.');
+
+    const item = SHOP_ITEMS.find(i => i.id === itemId);
+    player.equipped[slot] = null;
+    player.inventory.push(itemId);
+
+    if (item) showNotification(`📦 Guardou [${item.name}] de volta na mochila.`, 'equip');
+    saveDB();
+    updateUI();
 }
 
 function loadGame() {
