@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gym RPG - Digital Inventory</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;900&family=Hubot+Sans:wght@400;700&display=swap');
+        .rpg-title { font-family: 'Cinzel', serif; }
+        body { font-family: 'Hubot Sans', sans-serif; }
+        
+        img { 
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+        }
+        
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #020617; }
+        ::-webkit-scrollbar-thumb { background: #b45309; border-radius: 4px; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col selection:bg-amber-600 selection:text-slate-950">
+
+    <div id="auth-screen" class="flex-1 flex items-center justify-center p-4 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-black">
+        <div class="bg-slate-900 border-2 border-amber-600/40 p-8 rounded-xl w-full max-w-md shadow-[0_0_50px_rgba(0,0,0,0.8)] border-double">
+            <h1 class="rpg-title text-4xl text-center text-amber-500 mb-2 tracking-wider font-black">GYM RPG</h1>
+            <p class="text-center text-xs text-slate-400 mb-8 uppercase tracking-widest">Gains & Glory Inventory</p>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold uppercase text-slate-400 mb-1 tracking-wider">Nome do Herói</label>
+                    <input type="text" id="auth-username" class="w-full bg-slate-950 border-2 border-slate-800 rounded p-3 focus:border-amber-500 outline-none transition text-amber-400 font-bold">
+                </div>
+                
+                <div id="register-fields" class="hidden space-y-4 pt-4 border-t-2 border-slate-800/60">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Peso (kg)</label>
+                            <input type="number" id="reg-weight" value="80" class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-slate-200">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Altura (cm)</label>
+                            <input type="number" id="reg-height" value="175" class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-slate-200">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Gênero Vocacional</label>
+                        <select id="reg-gender" class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-amber-500 font-bold cursor-pointer">
+                            <option value="M">Masculino (Warrior)</option>
+                            <option value="F">Feminino (Valkyrie)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="pt-4 flex flex-col gap-3">
+                    <button id="btn-primary-auth" onclick="handlePrimaryAuth()" class="w-full bg-amber-600 hover:bg-amber-500 text-slate-950 font-black p-3 rounded uppercase tracking-wider transition-all duration-200 active:scale-95 shadow-lg shadow-amber-900/40">Entrar na Guilda</button>
+                    <button id="btn-toggle-auth" onclick="toggleAuthMode()" class="text-xs text-slate-400 hover:text-amber-400 underline transition text-center">Nova Estirpe? Registre-se aqui</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="main-game" class="hidden flex-1 flex flex-col">
+        
+        <header class="bg-slate-900/90 border-b-2 border-amber-600/30 p-4 sticky top-0 z-50 backdrop-blur-sm shadow-xl">
+            <div class="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div class="flex items-center gap-4 w-full sm:w-auto">
+                    <div id="hud-avatar-frame" class="w-12 h-12 bg-slate-950 border border-amber-500/40 rounded flex items-center justify-center text-2xl shadow-inner"></div>
+                    <div class="flex-1">
+                        <div class="flex items-baseline gap-2">
+                            <h2 id="char-name" class="rpg-title text-2xl text-amber-400 font-bold tracking-wide">HERÓI</h2>
+                            <span class="text-xs text-slate-400 uppercase">Nível <span id="char-level" class="text-amber-500 font-bold">1</span></span>
+                        </div>
+                        <div class="w-full sm:w-64 bg-slate-950 h-3 rounded border border-slate-800 mt-1 overflow-hidden relative">
+                            <div id="xp-bar" class="bg-gradient-to-r from-emerald-600 to-emerald-400 h-full transition-all duration-500" style="width: 0%"></div>
+                        </div>
+                        <div class="flex justify-between text-[10px] text-slate-400 w-full sm:w-64 px-0.5 mt-0.5">
+                            <span id="xp-current">0 XP</span>
+                            <span id="xp-next">100 XP</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex items-center justify-between sm:justify-end gap-6 w-full sm:w-auto border-t border-slate-800 pt-2 sm:pt-0 sm:border-none">
+                    <div class="bg-slate-950/80 border border-slate-800 px-4 py-2 rounded flex items-center gap-2 shadow-inner">
+                        <span class="text-xs text-slate-400 font-bold uppercase tracking-wider">Tesouro:</span>
+                        <span id="char-coins" class="text-amber-400 font-black text-xl tracking-wide">🪙 0</span>
+                    </div>
+                    <button onclick="logout()" class="text-xs bg-red-950/40 hover:bg-red-900 border border-red-800/60 px-3 py-2 rounded text-red-400 font-bold transition">Abandonar</button>
+                </div>
+            </div>
+        </header>
+
+        <div class="bg-slate-900/40 border-b border-slate-900 hidden md:block">
+            <div class="max-w-7xl mx-auto flex">
+                <button id="default-tab-btn" onclick="switchTab('character', this)" class="nav-btn-tab px-6 py-3 border-b-2 border-amber-500 bg-slate-900 text-amber-500 font-bold text-sm tracking-wider uppercase">🛡️ Forja & Inventário</button>
+                <button onclick="switchTab('farm', this)" class="nav-btn-tab px-6 py-3 border-b-2 border-transparent hover:bg-slate-900/50 text-slate-400 font-bold text-sm tracking-wider uppercase transition">🏋️ Campo de Treino</button>
+                <button onclick="switchTab('shop', this)" class="nav-btn-tab px-6 py-3 border-b-2 border-transparent hover:bg-slate-900/50 text-slate-400 font-bold text-sm tracking-wider uppercase transition">🛒 Mercado Medieval</button>
+                <button onclick="switchTab('logs', this)" class="nav-btn-tab px-6 py-3 border-b-2 border-transparent hover:bg-slate-900/50 text-slate-400 font-bold text-sm tracking-wider uppercase transition">📜 Crônicas</button>
+            </div>
+        </div>
+
+        <main class="flex-1 max-w-7xl w-full mx-auto p-4 pb-24 md:pb-12">
+            
+            <section id="tab-character" class="tab-content grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                
+                <div class="bg-slate-900/80 border-2 border-slate-800 p-5 rounded-xl shadow-lg lg:col-span-3 space-y-4">
+                    <h3 class="rpg-title text-base text-amber-500 font-bold uppercase tracking-wider border-b border-slate-800 pb-2">Status do Herói</h3>
+                    <div id="profile-meta-details" class="text-xs text-slate-400 space-y-1 bg-slate-950/60 p-3 rounded border border-slate-900"></div>
+                    <div class="space-y-2">
+                        <label class="text-xs font-bold uppercase text-slate-400 tracking-wider block mb-1">Poder de Combate</label>
+                        <div class="grid grid-cols-1 gap-2">
+                            <div class="bg-slate-950 p-3 rounded border border-slate-800 flex justify-between items-center">
+                                <span class="text-sm">⚔️ Ataque</span>
+                                <span id="stat-attack" class="font-black text-amber-400 text-base">0</span>
+                            </div>
+                            <div class="bg-slate-950 p-3 rounded border border-slate-800 flex justify-between items-center">
+                                <span class="text-sm">🛡️ Defesa</span>
+                                <span id="stat-defense" class="font-black text-blue-400 text-base">0</span>
+                            </div>
+                            <div class="bg-slate-950 p-3 rounded border border-slate-800 flex justify-between items-center">
+                                <span class="text-sm">🔮 Magia</span>
+                                <span id="stat-magic" class="font-black text-purple-400 text-base">0</span>
+                            </div>
+                            <div class="bg-slate-950 p-3 rounded border border-slate-800 flex justify-between items-center">
+                                <span class="text-sm">🧠  Inteligência</span>
+                                <span id="stat-intelligence" class="font-black text-cyan-400 text-base">0</span>
+                            </div>
+                            <div class="bg-slate-950 p-3 rounded border border-slate-800 flex justify-between items-center">
+                                <span class="text-sm">👟 Mobilidade</span>
+                                <span id="stat-mobility" class="font-black text-green-400 text-base">0</span>
+                            </div>
+                            <div class="bg-slate-950 p-3 rounded border border-slate-800 flex justify-between items-center">
+                                <span class="text-sm">🪵 Tenacidade</span>
+                                <span id="stat-tenacity" class="font-black text-orange-400 text-base">0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900/80 border-2 border-slate-800 p-5 rounded-xl shadow-lg lg:col-span-4 flex flex-col items-center">
+                    <h3 class="rpg-title text-base text-amber-500 font-bold uppercase tracking-wider border-b border-slate-800 pb-2 w-full text-center mb-4">Equipamento Ativo</h3>
+                    <div class="grid grid-cols-3 gap-3 w-full max-w-[320px] aspect-square relative bg-slate-950 p-4 rounded-xl border border-slate-800">
+                        <div id="slot-helmet" onclick="unequipItem('helmet')" class="w-full aspect-square bg-slate-900 border border-slate-800 rounded flex items-center justify-center text-[10px] text-slate-500 cursor-pointer">🪖 Cabeça</div>
+                        <div id="slot-necklace" onclick="unequipItem('necklace')" class="w-full aspect-square bg-slate-900 border border-slate-800 rounded flex items-center justify-center text-[10px] text-slate-500 cursor-pointer">📿 Colar</div>
+                        <div id="slot-shield" onclick="unequipItem('shield')" class="w-full aspect-square bg-slate-900 border border-slate-800 rounded flex items-center justify-center text-[10px] text-slate-500 cursor-pointer">🛡️ Defesa</div>
+                        
+                        <div id="slot-weapon" onclick="unequipItem('weapon')" class="w-full aspect-square bg-slate-900 border border-slate-800 rounded flex items-center justify-center text-[10px] text-slate-500 cursor-pointer">⚔️ Arma</div>
+                        <div id="character-doll-center" class="w-full aspect-square bg-slate-950 border-2 border-amber-600/40 rounded flex items-center justify-center overflow-hidden relative p-1">
+                            <div id="avatar-fallback-visual" class="text-center font-bold text-[10px] text-amber-500/80 uppercase"></div>
+                        </div>
+                        <div id="slot-gloves" onclick="unequipItem('gloves')" class="w-full aspect-square bg-slate-900 border border-slate-800 rounded flex items-center justify-center text-[10px] text-slate-500 cursor-pointer">🧤 Luvas</div>
+                        
+                        <div id="slot-ring" onclick="unequipItem('ring')" class="w-full aspect-square bg-slate-900 border border-slate-800 rounded flex items-center justify-center text-[10px] text-slate-500 cursor-pointer">💍 Anel</div>
+                        <div id="slot-armor" onclick="unequipItem('armor')" class="w-full aspect-square bg-slate-900 border border-slate-800 rounded flex items-center justify-center text-[10px] text-slate-500 cursor-pointer">🥋 Peito</div>
+                        <div id="slot-boots" onclick="unequipItem('boots')" class="w-full aspect-square bg-slate-900 border border-slate-800 rounded flex items-center justify-center text-[10px] text-slate-500 cursor-pointer">🥾 Pés</div>
+                    </div>
+                    <p class="text-[10px] text-slate-500 mt-3 italic text-center">Clique em um item equipado para guardá-lo.</p>
+                </div>
+
+                <div class="bg-slate-900/80 border-2 border-slate-800 p-5 rounded-xl shadow-lg lg:col-span-5">
+                    <div class="flex justify-between items-center border-b border-slate-800 pb-2 mb-4">
+                        <h3 class="rpg-title text-base text-amber-500 font-bold uppercase tracking-wider">Bolsa do Viajante</h3>
+                        <span id="bag-count" class="text-xs font-mono text-slate-400">0 / 24 Slots</span>
+                    </div>
+                    <div id="inventory-grid" class="grid grid-cols-4 sm:grid-cols-6 gap-2 max-h-[380px] overflow-y-auto pr-1"></div>
+                </div>
+            </section>
+
+            <section id="tab-farm" class="tab-content hidden max-w-xl mx-auto bg-slate-900 border-2 border-slate-800 p-6 rounded-xl shadow-2xl">
+                <h3 class="rpg-title text-xl text-center text-emerald-400 mb-2 font-bold tracking-wide">Quartel de Treinamento</h3>
+                <p class="text-xs text-center text-slate-400 mb-6 uppercase tracking-wider">Converta seu suor real em recursos digitais</p>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Atividade Realizada</label>
+                        <select id="farm-activity" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-slate-200 cursor-pointer outline-none">
+                            <option value="musculacao">🏋️ Musculação / Levantamento de Peso</option>
+                            <option value="cardio">🏃 Cardio de Alta Intensidade (Corrida/Hiit)</option>
+                            <option value="artes_marciais">🥋 Arte Marcial / Combate de Arena</option>
+                            <option value="esporte">⚽ Prática de Esporte / Mobilidade</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Tempo Real (Minutos)</label>
+                        <input type="number" id="farm-duration" value="60" min="1" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-slate-200 text-lg font-bold outline-none">
+                    </div>
+                    <button onclick="submitWorkout()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black p-4 rounded-lg uppercase tracking-wider transition-all pt-3">Reivindicar Exp & Moedas</button>
+                </div>
+            </section>
+
+            <section id="tab-shop" class="tab-content hidden space-y-4">
+                <h3 class="rpg-title text-xl text-amber-500 mb-2 text-center font-bold tracking-wide">Arsenal da Vila</h3>
+                <p class="text-xs text-center text-slate-400 mb-6 uppercase tracking-wider">Adquira relíquias para expandir seus atributos</p>
+                <div id="shop-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+            </section>
+
+            <section id="tab-logs" class="tab-content hidden max-w-3xl mx-auto space-y-4">
+                <h3 class="rpg-title text-lg text-slate-300 mb-2 font-bold tracking-wide">Pergaminho de Façanhas</h3>
+                <div id="logs-container" class="space-y-2 max-h-[500px] overflow-y-auto pr-2"></div>
+            </section>
+
+        </main>
+
+        <nav class="bg-slate-900 border-t-2 border-slate-800 fixed bottom-0 left-0 right-0 p-1 flex justify-around md:hidden z-50">
+            <button onclick="switchTab('character', this)" class="nav-btn flex flex-col items-center text-amber-500 font-bold text-[10px] py-2 px-3 w-full"><span>🛡️</span>Status</button>
+            <button onclick="switchTab('farm', this)" class="nav-btn flex flex-col items-center text-slate-400 text-[10px] py-2 px-3 w-full"><span>🏋️</span>Treino</button>
+            <button onclick="switchTab('shop', this)" class="nav-btn flex flex-col items-center text-slate-400 text-[10px] py-2 px-3 w-full"><span>🛒</span>Loja</button>
+            <button onclick="switchTab('logs', this)" class="nav-btn flex flex-col items-center text-slate-400 text-[10px] py-2 px-3 w-full"><span>📜</span>Logs</button>
+        </nav>
+    </div>
+
+    <div id="toast-container" class="fixed top-4 right-4 z-[100] flex flex-col gap-2 pointer-events-none w-full max-w-xs sm:max-w-sm p-4"></div>
+
+    <div id="rpg-tooltip" class="fixed pointer-events-none z-[100] hidden drop-shadow-[0_10px_10px_rgba(0,0,0,0.85)]"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
